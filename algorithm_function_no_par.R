@@ -30,6 +30,7 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, beta_prop_sig
       ABC <- find_abc(y_sample[t-1,], delta =0.2)
       C <- exp(beta[t-1])* diag(t_cov*ABC[,3])
       B <- exp(beta[t-1]) * t(t_cov*ABC[,2])
+      prior_y <- t(matrix(y_init)) 
     }
     
     ### matrices to parallise
@@ -61,15 +62,14 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, beta_prop_sig
     C_prime <- exp(beta[t-1])* diag(t_cov*ABC_prime[,3])
     B_prime <- exp(beta[t-1] ) * t(t_cov*ABC_prime[,2])
     inv_temp_Sigma_C_prime <- chol2inv(chol(inv_temp_Sigma+ C_prime))
-    Z_prime = t(X-B_prime) %*% inv_temp_Sigma_C_prime %*% (x-B_prime)  
+    Z_prime = (X-B_prime) %*% inv_temp_Sigma_C_prime %*% t(X-B_prime)  
     det_sigma_C_prime <-  prod(diag(chol(inv_temp_Sigma + C_prime))^2) #Determinant of Sigma+C' where C' uses proposed y values 
     
     ##(paper computes the two determinants Sigma+C and Sigma+C' parallelly but i dont see how that makes sense given the order of the code so maybe something is wrong here )
     
     
     ### acceptance probability for proposal of y 
-    acc_prob_y <- 0.5*t(prop_y)%*%C%*%prop_y + t(B)%*%prop_y -0.5*t(prior_y)%*%C%*%prior_y - t(B_prime)%*%prior_y - t(t)%*%exp(beta[t-1] + prop_y) 
-    + t(t_cov)%*%exp(beta[t-1] + prior_y) -0.5* log(det_sigma_C) + 0.5 * log(det_sigma_C_prime) + 0.5*Z - 0.5*Z_prime 
+    acc_prob_y <- 0.5*prop_y%*%C%*%t(prop_y) + B%*%t(prop_y) -0.5*prior_y%*%C%*%t(prior_y) - B_prime%*%t(prior_y) - t(t_cov)%*%t(exp(beta[t-1] + prop_y)) + t(t_cov)%*%t(exp(beta[t-1] + prior_y)) -0.5* log(det_sigma_C) + 0.5 * log(det_sigma_C_prime) + 0.5*Z - 0.5*Z_prime 
     
     
     u <- runif(1,0,1)

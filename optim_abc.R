@@ -38,9 +38,9 @@ find_abc <- function(y, delta){
     
     c <-  4/3 * b * y_d_3/y_d_4 + 4 / y_d_4 *(exp(y_p)*y_p - exp(y_m) * y_m) + 2 * b *y_d_2 / y_d_4  
     
-    a_vec[i] <- a
-    b_vec[i] <- b
-    c_vec[i] <- c 
+    a_vec[i] <- ifelse(is.na(a), runif(1, -1, 1), a)
+    b_vec[i] <- ifelse(is.na(b), runif(1, -1, 1), b)
+    c_vec[i] <- ifelse(is.na(c), runif(1, -1, 1), c)
   }
   
   return(matrix(c(a_vec,b_vec,c_vec), ncol = 3))
