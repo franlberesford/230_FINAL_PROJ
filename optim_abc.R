@@ -40,7 +40,7 @@ find_abc <- function(y, delta){
     
     a_vec[i] <- ifelse(is.na(a), runif(1, -1, 1), a)
     b_vec[i] <- ifelse(is.na(b), runif(1, -1, 1), b)
-    c_vec[i] <- ifelse(is.na(c), runif(1, -1, 1), c)
+    c_vec[i] <- ifelse(is.na(c), rgamma(1, 9,2), ifelse(c<0 , runif(1, 1e-15, 1e-10), c))
   }
   
   return(matrix(c(a_vec,b_vec,c_vec), ncol = 3))

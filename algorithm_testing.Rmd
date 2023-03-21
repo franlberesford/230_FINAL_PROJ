@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 #install.packages("mvtnorm")
 library(mvtnorm)
+library(invgamma)
+library(truncnorm)
 library(ggplot2)
 setwd("~/230_FINAL_PROJ")
 source("algorithm_function_no_par.R")
@@ -22,12 +24,12 @@ Start by simulating spatial data.
 ```{r cars}
 # Simulate the data
 
-xycoords <- seq(from=0,to=1,length=5)
+xycoords <- seq(from=0,to=1,length=2)
 allcoords <- expand.grid(xycoords,xycoords)
 nlocs <- nrow(allcoords)
 
 # make the covariance function for the GPs
-true.range <- 10
+true.range <- 10 
 true.sigma2 <- 0.5
 distmat <- as.matrix(dist(allcoords,diag=TRUE,upper=TRUE))
 Sigma <- true.sigma2 * exp(-true.range*distmat)
@@ -57,17 +59,17 @@ ggplot(plotdata, aes(Var1, Var2, fill= ys)) +
 You can also embed plots, for example:
 
 ```{r pressure, echo=FALSE}
-mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
+mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = .1 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
 
 
-num_locs = nlocs 
-num_its = 10 
-dist_mat = distmat
-X = Xs
-t_cov = ts 
-beta_prop_sigma = 0.5
-theta_prop_sigma <- c(0.5, 0.5) 
-t= 2
+# num_locs = nlocs 
+# num_its = 10 
+# dist_mat = distmat
+# X = Xs
+# t_cov = ts 
+# beta_prop_sigma = 0.5
+# theta_prop_sigma <- c(0.5, 0.5) 
+# t= 2
 
 
 
