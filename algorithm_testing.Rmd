@@ -16,6 +16,8 @@ library(ggplot2)
 setwd("~/230_FINAL_PROJ")
 source("algorithm_function_no_par.R")
 source("optim_abc.R")
+source("plot_y_trace.R")
+source("plot_theta_trace.R")
 ```
 
 ## R Markdown
@@ -30,7 +32,7 @@ allcoords <- expand.grid(xycoords,xycoords)
 nlocs <- nrow(allcoords)
 
 # make the covariance function for the GPs
-true.range <- 10 
+true.range <- 10 ## this is what they call alpha 
 true.sigma2 <- 0.5
 distmat <- as.matrix(dist(allcoords,diag=TRUE,upper=TRUE))
 Sigma <- true.sigma2 * exp(-true.range*distmat)
@@ -39,7 +41,9 @@ Sigma <- true.sigma2 * exp(-true.range*distmat)
 ys <- chol(Sigma)%*%rnorm(nlocs) # leave it at mean=0
   
 # simulate poisson process based on that
-ts <- runif(nlocs,min=1,max=10) # observation durations
+
+#ts <- runif(nlocs,min=1,max=10) # observation durations
+ts <- rep(100, nlocs)
 beta <- 1 # will not be differentiated from the mean of the GP,so use mean=0
 lambdas <- ts*exp(ys+beta)
 
@@ -60,12 +64,35 @@ ggplot(plotdata, aes(Var1, Var2, fill= ys)) +
 You can also embed plots, for example:
 
 ```{r pressure, echo=FALSE}
-mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
+#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
 
-test <- mcmc_alg_meth_1(num_locs=nlocs, num_its= 1000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-20,beta_prop_sigma = 0.1, theta_prop_sigma = c(0.1,0.1))
+test <- mcmc_alg_meth_1(num_locs=nlocs, num_its= 1000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-30,beta_prop_sigma = 0.01, theta_prop_sigma = c(1,5))
 
+
+#currently this does converge to values of a similar value to what we want but once we get there it doesn't move at all 
 plot_y_trace(test)
 
+
+## looking for 10 in left and 0.5 in right 
+plot_theta_trace(test)
+
+#should be 1
+plot(test$beta, type = "l" )
+```
+
+```{r}
+#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
+
+alg_and_plots(num_locs=nlocs, num_its= 10000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-30,beta_prop_sigma = 0.01, theta_prop_sigma = c(1,5))
+
+```
+
+
+
+```{r}
+#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
+
+alg_and_plots(num_locs=nlocs, num_its= 10000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-50,beta_prop_sigma = 0.01, theta_prop_sigma = c(4,7))
 
 ```
 
@@ -77,6 +104,47 @@ plot_y_trace(test)
 
 
 
+```{r}
+#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
+
+alg_and_plots(num_locs=nlocs, num_its= 10000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-50,beta_prop_sigma = 0.01, theta_prop_sigma = c(1,5))
+
+```
+
+
+
+
+```{r}
+#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
+
+alg_and_plots(num_locs=nlocs, num_its= 10000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-100,beta_prop_sigma = 0.01, theta_prop_sigma = c(1,5))
+
+```
+
+
+
+```{r}
+#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
+
+alg_and_plots(num_locs=nlocs, num_its= 10000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-50,beta_prop_sigma = 0.0001, theta_prop_sigma = c(1,5))
+
+```
+
+
+
+
+
+
+
+```{r}
+#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
+
+alg_and_plots(num_locs=nlocs, num_its= 5000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-50,beta_prop_sigma = 0.5, theta_prop_sigma = c(10,15))
+
+
+## looking for 10 in left and 0.5 in right in theta 
+## beta is 1
+```
 
 
 
@@ -87,3 +155,18 @@ plot_y_trace(test)
 
 
 
+```{r}
+#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
+
+alg_and_plots(num_locs=nlocs, num_its= 10000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-50,beta_prop_sigma = 0.5, theta_prop_sigma = c(10,15))
+## looking for 10 in left and 0.5 in right in theta 
+## beta is 1
+```
+
+
+
+It seems that as soon as y gets close enough to the true values, it stops mixing, sometimes this is after it has moved 30 times but sometimes this occurs after only one move. 
+
+Beta has been the easiest to get closest to its true value. It seems that 0.01 is a good value for the proposal sigma regardless of what the other parameters are doing.
+
+The theta values are not being found at all. 
