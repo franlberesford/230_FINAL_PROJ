@@ -2,6 +2,8 @@
 
 mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  beta_prop_sigma, theta_prop_sigma){
   
+    acc_counts <- rep(0,3)
+  
     #length of covariance parameter vector 
     length_theta <- length(theta_prop_sigma)
     
@@ -85,14 +87,19 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     ##(paper computes the two determinants Sigma+C and Sigma+C' parallelly but i dont see how that makes sense given the order of the code so maybe something is wrong here )
     
     
+    
     ### acceptance probability for proposal of y 
     acc_prob_y <- 0.5*prop_y%*%C%*%t(prop_y) + B%*%t(prop_y) -0.5*prior_y%*%C%*%t(prior_y) - B_prime%*%t(prior_y) - t(t_cov)%*%t(exp(beta_sample[t-1] + prop_y)) + t(t_cov)%*%t(exp(beta_sample[t-1] + prior_y)) -0.5* log(det_sigma_C) + 0.5 * log(det_sigma_C_prime) + 0.5*Z - 0.5*Z_prime 
     
     
     u <- runif(1,0,1)
-    if (acc_prob_y >= log(u) ){
+    if (is.na(acc_prob_y >= log(u) ) ){
+      y_sample[t,] <- prior_y
+    } else if(acc_prob_y >= log(u)) {
       y_sample[t,] <- prop_y
       prior_y <- prop_y 
+      print(t)
+      acc_counts[1] <- acc_counts[1]+1 
     } else {
       y_sample[t,] <- prior_y
     }
@@ -109,6 +116,7 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     
     u <- runif(1,0,1) 
     if (acc_prob_beta >= log(u)){
+      acc_counts[2] <- acc_counts[2] + 1 
       beta_sample[t] <- prop_beta
       prior_beta <- prop_beta
     } else {
@@ -142,6 +150,7 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     
     u <- runif(1,0,1) 
     if (acc_prob_theta >= log(u)){
+      acc_counts[3] <- acc_counts[3] + 1 
       theta_sample[t,] <- theta_prop
       prior_theta <- theta_prop
     } else {
@@ -149,6 +158,7 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     }
   
   }
+  acc_rates <- acc_counts / num_its
   
-  return(list("ys" = y_sample, "beta" = beta_sample, "theta" = theta_sample))
+  return(list("ys" = y_sample, "beta" = beta_sample, "theta" = theta_sample, "acceptance_rate" = acc_rates))
 }

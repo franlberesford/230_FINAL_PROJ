@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(mvtnorm)
 library(invgamma)
 library(truncnorm)
+library(circlize)
 library(ggplot2)
 setwd("~/230_FINAL_PROJ")
 source("algorithm_function_no_par.R")
@@ -24,7 +25,7 @@ Start by simulating spatial data.
 ```{r cars}
 # Simulate the data
 
-xycoords <- seq(from=0,to=1,length=2)
+xycoords <- seq(from=0,to=1,length=10)
 allcoords <- expand.grid(xycoords,xycoords)
 nlocs <- nrow(allcoords)
 
@@ -59,18 +60,11 @@ ggplot(plotdata, aes(Var1, Var2, fill= ys)) +
 You can also embed plots, for example:
 
 ```{r pressure, echo=FALSE}
-mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = .1 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
+mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
 
+test <- mcmc_alg_meth_1(num_locs=nlocs, num_its= 1000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-20,beta_prop_sigma = 0.1, theta_prop_sigma = c(0.1,0.1))
 
-# num_locs = nlocs 
-# num_its = 10 
-# dist_mat = distmat
-# X = Xs
-# t_cov = ts 
-# beta_prop_sigma = 0.5
-# theta_prop_sigma <- c(0.5, 0.5) 
-# t= 2
-
+plot_y_trace(test)
 
 
 ```
