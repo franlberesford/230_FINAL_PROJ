@@ -1,6 +1,6 @@
 ### algorithm function ### 
 
-mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  beta_prop_sigma, theta_prop_sigma){
+mcmc_alg_meth_0 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  beta_prop_sigma, theta_prop_sigma){
   
     acc_counts <- rep(0,3)
   

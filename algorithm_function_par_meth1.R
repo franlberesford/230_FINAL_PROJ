@@ -10,7 +10,7 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     ## set up matrices to store chains 
     y_sample <- matrix(NA, ncol = num_locs, nrow = num_its)
     theta_sample <- matrix(NA, ncol = length_theta, nrow = num_its)
-    beta_sample <- numeric(length = num_its) #i think this is just one number so we only need it to be a vector but i could be wrong ? 
+    beta_sample <- numeric(length = num_its) #i think this is just one number so we only need it to be a vector but i could be wrong ? library
     
     #initialise sample 
     y_sample[1,] <- y_init <- rnorm(num_locs, 0, 10)
@@ -19,7 +19,10 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     
     #theta proposal memory allocation 
     theta_prop <- numeric(length = length_theta)
-  
+    
+    cl<-makeCluster(3) #parallel::detectCores(logical=FALSE)) #change the 2 to your number of CPU cores  
+    registerDoSNOW(cl)
+    
   for (t in 2:num_its){
     #print(t)
     #### y
@@ -50,8 +53,6 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     #print(inv_temp_Sigma)
     #print(inv_temp_Sigma+C)
     
-    det_sigma_C <-  prod(diag(chol(inv_temp_Sigma+ C))^2) #sigma using theta values from time t-1 
-    
     
     #prior_Sigma <-  solve((solve(temp_Sigma) + C))
     #prior_mu <- prop_sigma %*%t(X-B)
@@ -80,15 +81,22 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     #print(inv_temp_Sigma + C_prime)
     
     inv_temp_Sigma_C_prime <- chol2inv(chol(inv_temp_Sigma+ C_prime))
-    Z_prime = (X-B_prime) %*% inv_temp_Sigma_C_prime %*% t(X-B_prime)  
-    det_sigma_C_prime <-  prod(diag(chol(inv_temp_Sigma + C_prime))^2) #Determinant of Sigma+C' where C' uses proposed y values 
+    Z_prime = (X-B_prime) %*% inv_temp_Sigma_C_prime %*% t(X-B_prime)
+    
+    C_list <- list(C, C_prime)
+    
+    
+    
+    list_det_Sigma_C <-foreach(i=1:2) %dopar% {  
+      prod(diag(chol(inv_temp_Sigma + C_list[[i]]))^2) #Determinant of Sigma+{C,C'} where C' uses proposed y values
+    }
     
     ##(paper computes the two determinants Sigma+C and Sigma+C' parallelly but i dont see how that makes sense given the order of the code so maybe something is wrong here )
     
     
     
     ### acceptance probability for proposal of y 
-    acc_prob_y <- 0.5*prop_y%*%C%*%t(prop_y) + B%*%t(prop_y) -0.5*prior_y%*%C_prime%*%t(prior_y) - B_prime%*%t(prior_y) - t(t_cov)%*%t(exp(beta_sample[t-1] + prop_y)) + t(t_cov)%*%t(exp(beta_sample[t-1] + prior_y)) -0.5* log(det_sigma_C) + 0.5 * log(det_sigma_C_prime) + 0.5*Z - 0.5*Z_prime 
+    acc_prob_y <- 0.5*prop_y%*%C%*%t(prop_y) + B%*%t(prop_y) -0.5*prior_y%*%C_prime%*%t(prior_y) - B_prime%*%t(prior_y) - t(t_cov)%*%t(exp(beta_sample[t-1] + prop_y)) + t(t_cov)%*%t(exp(beta_sample[t-1] + prior_y)) -0.5* log(list_det_Sigma_C[[1]]) + 0.5 * log(list_det_Sigma_C[[2]]) + 0.5*Z - 0.5*Z_prime 
     
     
     u <- runif(1,0,1)
@@ -139,17 +147,20 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     #prior and proposed Sigma matrices 
     temp_Sigma_prime = theta_prop[2]* exp(-1 * theta_prop[1]* dist_mat)
     temp_Sigma_prior = theta_sample[t-1,2]* exp(-1 * theta_sample[t-1,1]* dist_mat)
+
+    list_func_theta_prime <- foreach(i=1:3) %dopar% {  
+      ## want to do inv(Sigm y^Tinv(Sigma)y , and |Sigma|
+       par_functions_theta_prop(i, y=y_sample[t,], Sigma = temp_Sigma_prime)
+    }
+
     
-    #calculate determinants 
-    det_temp_Sigma_prime <-  prod(diag(chol(temp_Sigma_prime))^2)
-    det_temp_Sigma_prior <-  prod(diag(chol(temp_Sigma_prior))^2)
-    
-    #inverse of the Sigma matrices 
-    inv_temp_Sigma_prime <- chol2inv(chol(temp_Sigma_prime))
-    inv_temp_Sigma_prior <- chol2inv(chol(temp_Sigma_prior))
+    list_func_theta_prior <- foreach(i=1:3) %dopar% {  
+      ## want to do inv(Sigma)   , y^Tinv(Sigma)y , and |Sigma|
+      par_functions_theta_prop(i, y=y_sample[t,], Sigma = temp_Sigma_prior)
+    }
     
     #calculate joint acceptance probability 
-    acc_prob_theta <- 0.5*(-t(y_sample[t,])%*%inv_temp_Sigma_prime%*%y_sample[t,] +  t(y_sample[t,])%*%inv_temp_Sigma_prior%*%y_sample[t,] - log( det_temp_Sigma_prime) + log(det_temp_Sigma_prior ) ) 
+    acc_prob_theta <- 0.5*(-list_func_theta_prior[[1]] +  list_func_theta_prime[[1]] - log(list_func_theta_prime[[3]]) + log(list_func_theta_prior[[3]]) ) 
     
     u <- runif(1,0,1) 
     if (is.na(acc_prob_theta >= log(u))){
@@ -168,6 +179,7 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     }
    if (floor(t/1000) == t/1000 ){print(paste0(t, " out of ", num_its, " iterations done."))}
   }
+  stopCluster(cl)
   acc_rates <- acc_counts / num_its
   
   return(list("ys" = y_sample, "beta" = beta_sample, "theta" = theta_sample, "acceptance_rate" = acc_rates))
