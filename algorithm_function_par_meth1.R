@@ -183,10 +183,10 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     u <- runif(1,0,1) 
     if (is.na(acc_prob_theta >= log(u))){
       print(acc_prob_theta)
-      print(paste("y^TSigma^-1 prime y = ",t(y_sample[t,])%*%inv_Sigma_prime%*%y_sample[t,]  ))
-      print(paste("y^TSigma^-1 prior y = ",t(y_sample[t,])%*%inv_Sigma_prior%*%y_sample[t,]  ))
-      print(paste("log det Sigma prime = ",log( det_Sigma_prime)  ))
-      print(paste("log det Sigma prior = ",log( det_Sigma_prior)  ))
+      print(paste("y^TSigma^-1 prime y = ", res_prime[[1]] ))#t(y_sample[t,])%*%inv_Sigma_prime%*%y_sample[t,]  ))
+      print(paste("y^TSigma^-1 prior y = ", res_prior[[1]] )) #t(y_sample[t,])%*%inv_Sigma_prior%*%y_sample[t,]  ))
+      print(paste("log det Sigma prime = ", log( res_prime[[3]] )))#det_Sigma_prime)  ))
+      print(paste("log det Sigma prior = ",log( res_prior[[3]] )))#det_Sigma_prior)  ))
       theta_sample[t,] <- prior_theta 
     } else if (acc_prob_theta >= log(u)) {
       acc_counts[3] <- acc_counts[3] + 1 
