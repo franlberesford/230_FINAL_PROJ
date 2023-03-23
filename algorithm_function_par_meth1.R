@@ -1,34 +1,34 @@
 ### algorithm function ### 
 
 mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  beta_prop_sigma, theta_prop_sigma){
+    
   
-    acc_counts <- rep(0,3)
+  acc_counts <- rep(0,3)
   
-    #length of covariance parameter vector 
-    length_theta <- length(theta_prop_sigma)
+  #length of covariance parameter vector 
+  length_theta <- length(theta_prop_sigma)
+  
+  ## set up matrices to store chains 
+  y_sample <- matrix(NA, ncol = num_locs, nrow = num_its)
+  theta_sample <- matrix(NA, ncol = length_theta, nrow = num_its)
+  beta_sample <- numeric(length = num_its) #i think this is just one number so we only need it to be a vector but i could be wrong ? library
     
-    ## set up matrices to store chains 
-    y_sample <- matrix(NA, ncol = num_locs, nrow = num_its)
-    theta_sample <- matrix(NA, ncol = length_theta, nrow = num_its)
-    beta_sample <- numeric(length = num_its) #i think this is just one number so we only need it to be a vector but i could be wrong ? library
+  #initialise sample 
+  y_sample[1,] <- y_init <- rnorm(num_locs, 0, 10)
+  theta_sample[1,] <- theta_init <- c(rgamma(1, 9, 2) ,rinvgamma(1, 0.5, 0.5))
+  beta_sample[1] <- beta_init <-  rnorm(1, mean(X/t_cov), sd(X/t_cov))
     
-    #initialise sample 
-    y_sample[1,] <- y_init <- rnorm(num_locs, 0, 10)
-    theta_sample[1,] <- theta_init <- c(rgamma(1, 9, 2) ,rinvgamma(1, 0.5, 0.5))
-    beta_sample[1] <- beta_init <-  rnorm(1, mean(X/t_cov), sd(X/t_cov))
-    
-    #theta proposal memory allocation 
-    theta_prop <- numeric(length = length_theta)
-    
-    cl<-makeCluster(3) #parallel::detectCores(logical=FALSE)) #change the 2 to your number of CPU cores  
-    registerDoSNOW(cl)
+  #theta proposal memory allocation 
+  theta_prop <- numeric(length = length_theta)
+   
+  cl2<-parallel::makeCluster(3)  
     
   for (t in 2:num_its){
     #print(t)
     #### y
     
     ### prep matrices 
-    temp_Sigma = theta_sample[(t-1),2]* exp(-1 * theta_sample[(t-1),1]* dist_mat) #Covariance matrix using theta values from previous iteration. 
+    Sigma = theta_sample[(t-1),2]* exp(-1 * theta_sample[(t-1),1]* dist_mat) #Covariance matrix using theta values from previous iteration. 
     #temp_Sigma 
     
     ## make prior need to update Sigma matrix 
@@ -45,13 +45,13 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     
     
     ### matrices to parallise
-    Sigma_R <- chol(temp_Sigma) #this gives upper triangular but paper uses lower triangular 
-    inv_temp_Sigma <- chol2inv(Sigma_R)
-    #yt_temp_Sigma_y <- t(y_sample[t-1,])%*%solve(temp_Sigma)%*%y_sample[t-1,] #not needed at this step i don't think 
+    Sigma_R <- chol(Sigma) #this gives upper triangular but paper uses lower triangular 
+    inv_Sigma <- chol2inv(Sigma_R)
+    #yt_Sigma_y <- t(y_sample[t-1,])%*%solve(temp_Sigma)%*%y_sample[t-1,] #not needed at this step i don't think 
     det_Sigma <- prod(diag(Sigma_R)^2)
     
-    #print(inv_temp_Sigma)
-    #print(inv_temp_Sigma+C)
+    #print(inv_Sigma)
+    #print(inv_Sigma+C)
     
     
     #prior_Sigma <-  solve((solve(temp_Sigma) + C))
@@ -59,7 +59,7 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     
     
     ### setting up parameters for y proposal 
-    Sigma_C_R <- chol(inv_temp_Sigma + C ) 
+    Sigma_C_R <- chol(inv_Sigma + C ) 
     inv_Sigma_C <- chol2inv(Sigma_C_R)
     prop_sigma <- inv_Sigma_C  #sigma uses thetas from previous iteration 
     prop_mu = prop_sigma %*%t(X-B) 
@@ -78,25 +78,31 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     C_prime <- exp(beta_sample[t-1])* diag(t_cov*ABC_prime[,3])
     B_prime <- exp(beta_sample[t-1] ) * t(t_cov*ABC_prime[,2])
     #print(ABC_prime[,3])
-    #print(inv_temp_Sigma + C_prime)
+    #print(inv_Sigma + C_prime)
     
-    inv_temp_Sigma_C_prime <- chol2inv(chol(inv_temp_Sigma+ C_prime))
-    Z_prime = (X-B_prime) %*% inv_temp_Sigma_C_prime %*% t(X-B_prime)
+    inv_Sigma_C_prime <- chol2inv(chol(inv_Sigma+ C_prime))
+    Z_prime = (X-B_prime) %*% inv_Sigma_C_prime %*% t(X-B_prime)
     
     C_list <- list(C, C_prime)
+
+    # cl1<-parallel::makeCluster(2) #parallel::detectCores(logical=FALSE)) #change the 2 to your number of CPU cores  
+    # registerDoParallel(cl1)
+    clusterExport(cl2,list('det_func','C_list'))
+    res_det_S_C <- parLapply(cl2, C_list, det_func, inv_Sigma = inv_Sigma ) 
+    #parallel::stopCluster(cl1)
     
-    
-    
-    list_det_Sigma_C <-foreach(i=1:2) %dopar% {  
-      prod(diag(chol(inv_temp_Sigma + C_list[[i]]))^2) #Determinant of Sigma+{C,C'} where C' uses proposed y values
-    }
+    # doParallel::registerDoParallel(cl1)  
+    # list_det_Sigma_C <-foreach(i=1:2) %dopar% {  
+    #   prod(diag(chol(inv_Sigma + C_list[[i]]))^2) #Determinant of Sigma+{C,C'} where C' uses proposed y values
+    # }
+    # 
     
     ##(paper computes the two determinants Sigma+C and Sigma+C' parallelly but i dont see how that makes sense given the order of the code so maybe something is wrong here )
     
     
     
     ### acceptance probability for proposal of y 
-    acc_prob_y <- 0.5*prop_y%*%C%*%t(prop_y) + B%*%t(prop_y) -0.5*prior_y%*%C_prime%*%t(prior_y) - B_prime%*%t(prior_y) - t(t_cov)%*%t(exp(beta_sample[t-1] + prop_y)) + t(t_cov)%*%t(exp(beta_sample[t-1] + prior_y)) -0.5* log(list_det_Sigma_C[[1]]) + 0.5 * log(list_det_Sigma_C[[2]]) + 0.5*Z - 0.5*Z_prime 
+    acc_prob_y <- 0.5*prop_y%*%C%*%t(prop_y) + B%*%t(prop_y) -0.5*prior_y%*%C_prime%*%t(prior_y) - B_prime%*%t(prior_y) - t(t_cov)%*%t(exp(beta_sample[t-1] + prop_y)) + t(t_cov)%*%t(exp(beta_sample[t-1] + prior_y)) -0.5* log(res_det_S_C[[1]]) + 0.5 * log(res_det_S_C[[2]]) + 0.5*Z - 0.5*Z_prime 
     
     
     u <- runif(1,0,1)
@@ -106,7 +112,7 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
       y_sample[t,] <- prop_y
       prior_y <- prop_y 
       print(t)
-      acc_counts[1] <- acc_counts[1]+1 
+      acc_counts[1] <- acc_counts[1]+1  
       ABC <- ABC_prime
     } else {
       y_sample[t,] <- prior_y
@@ -147,28 +153,40 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     #prior and proposed Sigma matrices 
     temp_Sigma_prime = theta_prop[2]* exp(-1 * theta_prop[1]* dist_mat)
     temp_Sigma_prior = theta_sample[t-1,2]* exp(-1 * theta_sample[t-1,1]* dist_mat)
-
-    list_func_theta_prime <- foreach(i=1:3) %dopar% {  
-      ## want to do inv(Sigm y^Tinv(Sigma)y , and |Sigma|
-       par_functions_theta_prop(i, y=y_sample[t,], Sigma = temp_Sigma_prime)
-    }
-
     
-    list_func_theta_prior <- foreach(i=1:3) %dopar% {  
-      ## want to do inv(Sigma)   , y^Tinv(Sigma)y , and |Sigma|
-      par_functions_theta_prop(i, y=y_sample[t,], Sigma = temp_Sigma_prior)
-    }
+    ind_sample <- c(1:3)
     
+    #parallel::detectCores(logical=FALSE)) #change the 2 to your number of CPU cores  
+    #registerDoParallel(cl2)
+    clusterExport(cl2,list('par_functions_theta_prop','ind_sample'))
+    res_prior <- parLapply(cl2, ind_sample, par_functions_theta_prop,  y=y_sample[t,], Sigma = temp_Sigma_prior ) 
+    res_prime <-  parLapply(cl2, ind_sample, par_functions_theta_prop,  y=y_sample[t,], Sigma = temp_Sigma_prime ) 
+    
+# 
+#     cl2<-parallel::makeCluster(3) #parallel::detectCores(logical=FALSE)) #change the 2 to your number of CPU cores  
+#     doParallel::registerDoParallel(cl2)
+#     list_func_theta_prime <- foreach(i=1:3) %dopar% {
+#       source("par_functions_theta_prop.R")
+#       ## want to do inv(Sigm y^Tinv(Sigma)y , and |Sigma|
+#        par_functions_theta_prop(i, y=y_sample[t,], Sigma = temp_Sigma_prime)
+#     }
+#     parallel::stopCluster(cl2)
+    
+    # list_func_theta_prior <- foreach(i=1:3) %dopar% {  
+    #   ## want to do inv(Sigma)   , y^Tinv(Sigma)y , and |Sigma|
+    #   par_functions_theta_prop(i, y=y_sample[t,], Sigma = temp_Sigma_prior)
+    # }
+    # 
     #calculate joint acceptance probability 
-    acc_prob_theta <- 0.5*(-list_func_theta_prior[[1]] +  list_func_theta_prime[[1]] - log(list_func_theta_prime[[3]]) + log(list_func_theta_prior[[3]]) ) 
+    acc_prob_theta <- 0.5*(-res_prior[[1]] +  res_prime[[1]] - log(res_prime[[3]]) + log(res_prior[[3]]) ) 
     
     u <- runif(1,0,1) 
     if (is.na(acc_prob_theta >= log(u))){
       print(acc_prob_theta)
-      print(paste("y^TSigma^-1 prime y = ",t(y_sample[t,])%*%inv_temp_Sigma_prime%*%y_sample[t,]  ))
-      print(paste("y^TSigma^-1 prior y = ",t(y_sample[t,])%*%inv_temp_Sigma_prior%*%y_sample[t,]  ))
-      print(paste("log det Sigma prime = ",log( det_temp_Sigma_prime)  ))
-      print(paste("log det Sigma prior = ",log( det_temp_Sigma_prior)  ))
+      print(paste("y^TSigma^-1 prime y = ",t(y_sample[t,])%*%inv_Sigma_prime%*%y_sample[t,]  ))
+      print(paste("y^TSigma^-1 prior y = ",t(y_sample[t,])%*%inv_Sigma_prior%*%y_sample[t,]  ))
+      print(paste("log det Sigma prime = ",log( det_Sigma_prime)  ))
+      print(paste("log det Sigma prior = ",log( det_Sigma_prior)  ))
       theta_sample[t,] <- prior_theta 
     } else if (acc_prob_theta >= log(u)) {
       acc_counts[3] <- acc_counts[3] + 1 
@@ -179,8 +197,9 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     }
    if (floor(t/1000) == t/1000 ){print(paste0(t, " out of ", num_its, " iterations done."))}
   }
-  stopCluster(cl)
   acc_rates <- acc_counts / num_its
+  
+  parallel::stopCluster(cl2)
   
   return(list("ys" = y_sample, "beta" = beta_sample, "theta" = theta_sample, "acceptance_rate" = acc_rates))
 }

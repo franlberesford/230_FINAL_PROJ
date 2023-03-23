@@ -37,16 +37,16 @@ find_abc <- function(y, delta){
     t8 <- (-t3/9)*y_d_3 - t6*y_d_2*t3/3 + (1/4)*t6*y_d_4 + (1/10)*y_d_5
     t9 <- -t7*y_d_2*t3/3 - (2/3)*e_y_d*t3 + (t7/4)*y_d_4 - t2
     
-    c_vec[i] <- max(t9/t8,0)
-    b_vec[i] <- c_vec[i]*t6 - t7
-    a_vec[i] <- 1
+    c <- max(t9/t8,0)
+    b <- c_vec[i]*t6 - t7
+    a <- 1
     
     #opts <- optim(par=c(1,1,1),fn=fntomin,method="SANN")
     
     
-    #a_vec[i] <- opts$par[1]#ifelse(is.na(a), runif(1, -1, 1), a)
-    #b_vec[i] <- opts$par[2]#ifelse(is.na(b), runif(1, -1, 1), b)
-    #c_vec[i] <- opts$par[3]#ifelse(is.na(c), rgamma(1, 9,2), ifelse(c<0 , runif(1, 1e-15, 1e-10), c))
+    a_vec[i] <- ifelse(is.na(a), runif(1, -1, 1), a)
+    b_vec[i] <- ifelse(is.na(b), runif(1, -1, 1), b)
+    c_vec[i] <- ifelse(is.na(c), rgamma(1, 9,2), ifelse(c<0 , runif(1, 1e-15, 1e-10), c))
   }
   
   return(matrix(c(a_vec,b_vec,c_vec), ncol = 3))

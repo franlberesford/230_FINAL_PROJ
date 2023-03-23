@@ -15,7 +15,8 @@ library(circlize)
 library(ggplot2)
 setwd("~/230_FINAL_PROJ")
 source("algorithm_function_no_par.R")
-source("optim_abc.R")
+source("find_abc.R")
+source("alg0_and_plots.R")
 source("plot_y_trace.R")
 source("plot_theta_trace.R")
 ```
@@ -66,102 +67,44 @@ You can also embed plots, for example:
 ```{r pressure, echo=FALSE}
 #mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
 
-test <- mcmc_alg_meth_1(num_locs=nlocs, num_its= 1000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-30,beta_prop_sigma = 0.01, theta_prop_sigma = c(1,5))
+test <- mcmc_alg_meth_0(num_locs=nlocs, num_its= 1000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-1,beta_prop_sigma = 0.1, theta_prop_sigma = c(0.1, 0.2))
 
 
 #currently this does converge to values of a similar value to what we want but once we get there it doesn't move at all 
 plot_y_trace(test)
 
 
-## looking for 10 in left and 0.5 in right 
+
 plot_theta_trace(test)
 
 #should be 1
 plot(test$beta, type = "l" )
 ```
 
-```{r}
-#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
 
-alg_and_plots(num_locs=nlocs, num_its= 10000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-30,beta_prop_sigma = 0.01, theta_prop_sigma = c(1,5))
-
-```
-
-
+Making delta bigger seems to make the theta variables mix better but the beta then goes down to a negative value. the y does not mix well at all. 
+NO after that everything started going wrong again lol 
 
 ```{r}
-#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
 
-alg_and_plots(num_locs=nlocs, num_its= 10000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-50,beta_prop_sigma = 0.01, theta_prop_sigma = c(4,7))
+alg0_and_plots(num_locs=nlocs, num_its= 3000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-100,beta_prop_sigma = 0.1, theta_prop_sigma = c(0.9, 0.9))
 
+
+#beta should be 1
+# for theta looking for 10 in left and 0.5 in right 
 ```
 
+What is the logic behind the theta parameters increasing and not stopping ? This means we are only accepting draws where at least one of the thetas is growing, in general, so the log(P(acc)) is low when theta_prop < theta_prior. 
+
+Conversely why do we have that beta was only accepting draws where beta_prop <beta_prior? 
+
+
+What determines when beta stops decreasing and converges at a minimum value then refuses to move? 
 
 
 
 
 
-
-
-
-```{r}
-#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
-
-alg_and_plots(num_locs=nlocs, num_its= 10000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-50,beta_prop_sigma = 0.01, theta_prop_sigma = c(1,5))
-
-```
-
-
-
-
-```{r}
-#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
-
-alg_and_plots(num_locs=nlocs, num_its= 10000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-100,beta_prop_sigma = 0.01, theta_prop_sigma = c(1,5))
-
-```
-
-
-
-```{r}
-#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
-
-alg_and_plots(num_locs=nlocs, num_its= 10000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-50,beta_prop_sigma = 0.0001, theta_prop_sigma = c(1,5))
-
-```
-
-
-
-
-
-
-
-```{r}
-#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
-
-alg_and_plots(num_locs=nlocs, num_its= 5000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-50,beta_prop_sigma = 0.5, theta_prop_sigma = c(10,15))
-
-
-## looking for 10 in left and 0.5 in right in theta 
-## beta is 1
-```
-
-
-
-
-
-
-
-
-
-
-```{r}
-#mcmc_alg_meth_1(num_locs=nlocs, num_its= 10, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta = 0.01 ,beta_prop_sigma = 0.5, theta_prop_sigma = c(0.5, 0.5))
-
-alg_and_plots(num_locs=nlocs, num_its= 10000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-50,beta_prop_sigma = 0.5, theta_prop_sigma = c(10,15))
-## looking for 10 in left and 0.5 in right in theta 
-## beta is 1
-```
 
 
 

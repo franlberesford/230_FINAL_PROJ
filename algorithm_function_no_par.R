@@ -13,8 +13,8 @@ mcmc_alg_meth_0 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     beta_sample <- numeric(length = num_its) #i think this is just one number so we only need it to be a vector but i could be wrong ? 
     
     #initialise sample 
-    y_sample[1,] <- y_init <- rnorm(num_locs, 0, 10)
     theta_sample[1,] <- theta_init <- c(rgamma(1, 9, 2) ,rinvgamma(1, 0.5, 0.5))
+    y_sample[1,] <- y_init <- rmvnorm(1, mean = rep(0,num_locs),  sigma = theta_init[2]* exp(-1 * theta_init[1]* dist_mat) )
     beta_sample[1] <- beta_init <-  rnorm(1, mean(X/t_cov), sd(X/t_cov))
     
     #theta proposal memory allocation 
@@ -25,7 +25,7 @@ mcmc_alg_meth_0 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     #### y
     
     ### prep matrices 
-    temp_Sigma = theta_sample[(t-1),2]* exp(-1 * theta_sample[(t-1),1]* dist_mat) #Covariance matrix using theta values from previous iteration. 
+    Sigma = theta_sample[(t-1),2]* exp(-1 * theta_sample[(t-1),1]* dist_mat) #Covariance matrix using theta values from previous iteration. 
     #temp_Sigma 
     
     ## make prior need to update Sigma matrix 
@@ -42,15 +42,15 @@ mcmc_alg_meth_0 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     
     
     ### matrices to parallise
-    Sigma_R <- chol(temp_Sigma) #this gives upper triangular but paper uses lower triangular 
-    inv_temp_Sigma <- chol2inv(Sigma_R)
+    Sigma_R <- chol(Sigma) #this gives upper triangular but paper uses lower triangular 
+    inv_Sigma <- chol2inv(Sigma_R)
     #yt_temp_Sigma_y <- t(y_sample[t-1,])%*%solve(temp_Sigma)%*%y_sample[t-1,] #not needed at this step i don't think 
     det_Sigma <- prod(diag(Sigma_R)^2)
     
     #print(inv_temp_Sigma)
     #print(inv_temp_Sigma+C)
     
-    det_sigma_C <-  prod(diag(chol(inv_temp_Sigma+ C))^2) #sigma using theta values from time t-1 
+    det_sigma_C <-  prod(diag(chol(inv_Sigma+ C))^2) #sigma using theta values from time t-1 
     
     
     #prior_Sigma <-  solve((solve(temp_Sigma) + C))
@@ -58,7 +58,7 @@ mcmc_alg_meth_0 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     
     
     ### setting up parameters for y proposal 
-    Sigma_C_R <- chol(inv_temp_Sigma + C ) 
+    Sigma_C_R <- chol(inv_Sigma + C ) 
     inv_Sigma_C <- chol2inv(Sigma_C_R)
     prop_sigma <- inv_Sigma_C  #sigma uses thetas from previous iteration 
     prop_mu = prop_sigma %*%t(X-B) 
@@ -79,9 +79,9 @@ mcmc_alg_meth_0 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     #print(ABC_prime[,3])
     #print(inv_temp_Sigma + C_prime)
     
-    inv_temp_Sigma_C_prime <- chol2inv(chol(inv_temp_Sigma+ C_prime))
-    Z_prime = (X-B_prime) %*% inv_temp_Sigma_C_prime %*% t(X-B_prime)  
-    det_sigma_C_prime <-  prod(diag(chol(inv_temp_Sigma + C_prime))^2) #Determinant of Sigma+C' where C' uses proposed y values 
+    inv_Sigma_C_prime <- chol2inv(chol(inv_Sigma+ C_prime))
+    Z_prime = (X-B_prime) %*% inv_Sigma_C_prime %*% t(X-B_prime)  
+    det_sigma_C_prime <-  prod(diag(chol(inv_Sigma + C_prime))^2) #Determinant of Sigma+C' where C' uses proposed y values 
     
     ##(paper computes the two determinants Sigma+C and Sigma+C' parallelly but i dont see how that makes sense given the order of the code so maybe something is wrong here )
     
@@ -137,28 +137,31 @@ mcmc_alg_meth_0 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     }
     
     #prior and proposed Sigma matrices 
-    temp_Sigma_prime = theta_prop[2]* exp(-1 * theta_prop[1]* dist_mat)
-    temp_Sigma_prior = theta_sample[t-1,2]* exp(-1 * theta_sample[t-1,1]* dist_mat)
+    Sigma_prime = theta_prop[2]* exp(-1 * theta_prop[1]* dist_mat)
+    Sigma_prior = theta_sample[t-1,2]* exp(-1 * theta_sample[t-1,1]* dist_mat)
     
     #calculate determinants 
-    det_temp_Sigma_prime <-  prod(diag(chol(temp_Sigma_prime))^2)
-    det_temp_Sigma_prior <-  prod(diag(chol(temp_Sigma_prior))^2)
+    det_Sigma_prime <-  prod(diag(chol(Sigma_prime))^2)
+    det_Sigma_prior <-  prod(diag(chol(Sigma_prior))^2)
     
     #inverse of the Sigma matrices 
-    inv_temp_Sigma_prime <- chol2inv(chol(temp_Sigma_prime))
-    inv_temp_Sigma_prior <- chol2inv(chol(temp_Sigma_prior))
+    inv_Sigma_prime <- chol2inv(chol(Sigma_prime))
+    inv_Sigma_prior <- chol2inv(chol(Sigma_prior))
     
     #calculate joint acceptance probability 
-    acc_prob_theta <- 0.5*(-t(y_sample[t,])%*%inv_temp_Sigma_prime%*%y_sample[t,] +  t(y_sample[t,])%*%inv_temp_Sigma_prior%*%y_sample[t,] - log( det_temp_Sigma_prime) + log(det_temp_Sigma_prior ) ) 
+    acc_prob_theta <- 0.5*(-t(y_sample[t,])%*%inv_Sigma_prime%*%y_sample[t,] +  t(y_sample[t,])%*%inv_Sigma_prior%*%y_sample[t,] - log( det_Sigma_prime) + log(det_Sigma_prior ) ) 
     
     u <- runif(1,0,1) 
     if (is.na(acc_prob_theta >= log(u))){
       print(acc_prob_theta)
-      print(paste("y^TSigma^-1 prime y = ",t(y_sample[t,])%*%inv_temp_Sigma_prime%*%y_sample[t,]  ))
-      print(paste("y^TSigma^-1 prior y = ",t(y_sample[t,])%*%inv_temp_Sigma_prior%*%y_sample[t,]  ))
-      print(paste("log det Sigma prime = ",log( det_temp_Sigma_prime)  ))
-      print(paste("log det Sigma prior = ",log( det_temp_Sigma_prior)  ))
+      print(paste("y^TSigma^-1 prime y = ",t(y_sample[t,])%*%inv_Sigma_prime%*%y_sample[t,]  ))
+      print(paste("y^TSigma^-1 prior y = ",t(y_sample[t,])%*%inv_Sigma_prior%*%y_sample[t,]  ))
+      print(paste("log det Sigma prime = ",log( det_Sigma_prime)  ))
+      print(paste("log det Sigma prior = ",log( det_Sigma_prior)  ))
       theta_sample[t,] <- prior_theta 
+      
+      #re define the acceptance probability ignoring the -Infs 
+      acc_prob_theta <-  0.5*(-t(y_sample[t,])%*%inv_Sigma_prime%*%y_sample[t,] +  t(y_sample[t,])%*%inv_Sigma_prior%*%y_sample[t,]) 
     } else if (acc_prob_theta >= log(u)) {
       acc_counts[3] <- acc_counts[3] + 1 
       theta_sample[t,] <- theta_prop
