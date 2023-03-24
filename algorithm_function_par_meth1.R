@@ -21,7 +21,7 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
   #theta proposal memory allocation 
   theta_prop <- numeric(length = length_theta)
    
-  cl2<-parallel::makeCluster(3)  
+  #cl2<-parallel::makeCluster(3)  
     
   for (t in 2:num_its){
     #print(t)
@@ -87,8 +87,8 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
 
     # cl1<-parallel::makeCluster(2) #parallel::detectCores(logical=FALSE)) #change the 2 to your number of CPU cores  
     # registerDoParallel(cl1)
-    clusterExport(cl2,list('det_func','C_list'))
-    res_det_S_C <- parLapply(cl2, C_list, det_func, inv_Sigma = inv_Sigma ) 
+    #clusterExport(cl2,list('det_func','C_list'))
+    res_det_S_C <- parallel::mclapply( C_list, det_func, inv_Sigma = inv_Sigma , mc.cores =2 ) 
     #parallel::stopCluster(cl1)
     
     # doParallel::registerDoParallel(cl1)  
@@ -158,9 +158,9 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
     
     #parallel::detectCores(logical=FALSE)) #change the 2 to your number of CPU cores  
     #registerDoParallel(cl2)
-    clusterExport(cl2,list('par_functions_theta_prop','ind_sample'))
-    res_prior <- parLapply(cl2, ind_sample, par_functions_theta_prop,  y=y_sample[t,], Sigma = temp_Sigma_prior ) 
-    res_prime <-  parLapply(cl2, ind_sample, par_functions_theta_prop,  y=y_sample[t,], Sigma = temp_Sigma_prime ) 
+    #clusterExport(cl2,list('par_functions_theta_prop','ind_sample'))
+    res_prior <- parallel::mclapply(ind_sample, par_functions_theta_prop,  y=y_sample[t,], Sigma = temp_Sigma_prior, mc.cores =3  ) 
+    res_prime <-  parallel::mclapply(ind_sample, par_functions_theta_prop,  y=y_sample[t,], Sigma = temp_Sigma_prime ,  mc.cores =3 ) 
     
 # 
 #     cl2<-parallel::makeCluster(3) #parallel::detectCores(logical=FALSE)) #change the 2 to your number of CPU cores  
@@ -199,7 +199,7 @@ mcmc_alg_meth_1 <- function(num_locs, num_its, dist_mat, X, t_cov, abc_delta,  b
   }
   acc_rates <- acc_counts / num_its
   
-  parallel::stopCluster(cl2)
+  #parallel::stopCluster(cl2)
   
   return(list("ys" = y_sample, "beta" = beta_sample, "theta" = theta_sample, "acceptance_rate" = acc_rates))
 }

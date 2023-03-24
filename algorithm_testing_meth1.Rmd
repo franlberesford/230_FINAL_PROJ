@@ -22,6 +22,7 @@ source("algorithm_function_no_par.R")
 source("find_abc.R")
 source("det_func.R")
 source("par_functions_theta_prop.R")
+source("all_plots.R") 
 source("algorithm_function_par_meth1.R")
 source("alg1_and_plots.R")
 source("plot_y_trace.R")
@@ -35,7 +36,7 @@ Start by simulating spatial data.
 ```{r cars}
 # Simulate the data
 
-xycoords <- seq(from=0,to=1,length=8)
+xycoords <- seq(from=0,to=1/sqrt(2),length=5)
 allcoords <- expand.grid(xycoords,xycoords)
 nlocs <- nrow(allcoords)
 
@@ -100,7 +101,7 @@ You can also embed plots, for example:
 ```{r pressure, echo=FALSE}
 
 
-alg1_and_plots(num_locs=nlocs, num_its= 3000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-30,beta_prop_sigma = 0.01, theta_prop_sigma = c(0.1, 0.5))
+alg1_and_plots(num_locs=nlocs, num_its= 100, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 1e-30,beta_prop_sigma = 0.01, theta_prop_sigma = c(0.1, 0.5))
 
 t=2
 ## try with perLapply 
@@ -123,23 +124,7 @@ alg_and_plots(num_locs=nlocs, num_its= 10000, dist_mat = distmat, X=Xs, t_cov= t
 ```
 
 
-
-
-
-## Benchmarking base algorithm against method 1a 
-
-```{r}
-
-res <- bench::mark(mcmc_alg_meth_0(num_locs=nlocs, num_its= 1000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 5,beta_prop_sigma = 0.01, theta_prop_sigma = c(4,7)),
-            mcmc_alg_meth_1(num_locs=nlocs, num_its= 1000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 5,beta_prop_sigma = 0.01, theta_prop_sigma = c(4,7)),
-            check = FALSE 
-)
-
-summary(res)
-
-```
-
-
+## attempting method 2 
 
 
 
@@ -152,6 +137,168 @@ far_across <- m - (m*ceiling(id/m) - id)
 
 #once i have these labels unsure how to then turn these into quadrant numbers 
 ```
+
+
+
+
+
+## Benchmarking base algorithm against method 1a 
+
+```{r}
+
+res <- bench::mark(mcmc_alg_meth_0(num_locs=nlocs, num_its= 1000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 5,beta_prop_sigma = 0.01, theta_prop_sigma = c(4,7)),
+            mcmc_alg_meth_1(num_locs=nlocs, num_its= 1000, dist_mat = distmat, X=Xs, t_cov= ts, abc_delta= 5,beta_prop_sigma = 0.01, theta_prop_sigma = c(4,7)),
+            check = FALSE ,
+            memory = FALSE 
+)
+
+summary(res)
+
+```
+
+
+```{r setup params to compare benchmarking}
+
+
+length_data <- c(5,7,10,15)
+chain_length <- c(500, 1000, 10000)
+
+lendat <- length(length_data)
+lenchai <- length(chain_length)
+  
+#chain_length = 100 
+
+```
+
+
+
+
+```{r benchmarking loop}
+
+all_results <- vector("list", lendat*lenchai )
+for (l in 1:length(length_data)){
+  dat_size <- length_data[l]
+  
+  
+  ## simulate data (note we wil keep this the same and compare different chain lengths for a given data set)
+  temp_dat <- sim_data(len = dat_size, range = 10 , sigma2= 0.5, beta = 1, min_d = 0 , max_d = 1/sqrt(2))
+  
+  for (i in 1:length(chain_length)){
+    
+    num_iteration <- chain_length[i]
+    
+    temp_result <- bench::mark(test0 = mcmc_alg_meth_0(num_locs=dat_size^2, num_its= num_iteration, dist_mat = temp_dat$distance, X=temp_dat$Xs, t_cov= temp_dat$ts, abc_delta= 5,beta_prop_sigma = 0.01, theta_prop_sigma = c(4,7)),
+            test1 = mcmc_alg_meth_1( num_locs=dat_size^2, num_its= num_iteration, dist_mat = temp_dat$distance, X=temp_dat$Xs, t_cov= temp_dat$ts, abc_delta= 5,beta_prop_sigma = 0.01, theta_prop_sigma = c(4,7)), 
+    check = FALSE, memory = FALSE )
+    
+    all_results[[((l-1)*lenchai + i )]] <- temp_result 
+    names(all_results)[((l-1)*lenchai + i )] <- paste0("datlen_", dat_size, "_its_", num_iteration)
+    
+    assign(paste0("output_nopar_datlen_", dat_size, "_its_", num_iteration), test0)
+    assign(paste0("output_par_datlen_", dat_size, "_its_", num_iteration), test1)
+  }
+}
+
+
+
+```
+
+
+
+
+
+```{r looking at the plots }
+
+#ls(pattern = "output")
+
+##not working but they are a bit broken anyway 
+for (j in ls(pattern = "output")){
+  all_plots(paste(j))
+}
+  
+
+```
+
+
+
+
+
+
+```{r extracting median time and time per iteration from list items }
+## want to construct data frame, one for median time one for it/sec, but then for each one for para and one for non para 
+
+med_time <- data.frame(all_results[[1]]$median)
+for (i in 2:12){
+  med_time <- cbind(med_time, all_results[[i]]$median)
+}
+colnames(med_time) <- names(all_results)
+
+
+it_sec <- data.frame(all_results[[1]]$`itr/sec`)
+for (i in 2:12){
+  it_sec <- cbind(it_sec, all_results[[i]]$`itr/sec`)
+}
+colnames(it_sec) <- names(all_results)
+
+
+rownames(med_time) <- rownames(it_sec) <- c("no_par", "meth1")
+
+no_par_median <- matrix(med_time[1,], ncol = 4)
+par_median <- matrix(med_time[2,], ncol = 4)
+no_par_itsec <- matrix(it_sec[1,], ncol = 4)
+par_itsec <- matrix(it_sec[2,], ncol = 4)
+
+
+
+colnames(no_par_median) <-  colnames(par_median) <- colnames(no_par_itsec) <- colnames(par_itsec)<- c("size5", "size7", "size10", "size15")
+rownames(no_par_median) <-  rownames(par_median) <- rownames(no_par_itsec) <- rownames(par_itsec) <- c("500it", "1000it", "10000it")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r making graphs (2 kinds because not sure which one Lynsie wants )}
+
+
+plot(x=c(1:4), y = no_par_median[1,], type = "l", lty  = 3 , ylim = range(med_time), xlab = "Grid Size", ylab = "Median Time (secs)", xaxt="n", col = "dodgerblue4", main = "Change in median processing time for different grid sizes and chain length") #xaxp = c(1, 4,3))
+axis(1, at =c(1:4), labels = c("5x5","7x7","10x10","15x15"))
+lines(x=c(1:4), y = no_par_median[2,], type = "l", lty  = 3, col = "red4")
+lines(x=c(1:4), y = no_par_median[3,], type = "l", lty  = 3, col = "green4")
+lines(x=c(1:4), y = par_median[1,], type = "l", lty  = 4, col = "dodgerblue4")
+lines(x=c(1:4), y = par_median[2,], type = "l", lty  = 4, col = "red4")
+lines(x=c(1:4), y = par_median[3,], type = "l", lty  = 4,col = "green4")
+legend("topleft", lty = c(3,3,3,4,4,4), col = c("dodgerblue4", "red4", "green4", "dodgerblue4", "red4", "green4"), legend = c("No par, 500 its", "No par, 1000 its", "No par, 10000 its", "Method 1, 500 its", "Method1, 1000 its", "Method 1, 10000 its"), cex = 0.75)
+
+
+
+plot(x=c(1:4), y = no_par_itsec[1,], type = "l", lty  = 3 , ylim = range(it_sec), xlab = "Grid Size", ylab = "Iteration/Second", xaxt="n", col = "dodgerblue4", main = "Change in iterations/second for different grid sizes and chain length") #xaxp = c(1, 4,3))
+axis(1, at =c(1:4), labels = c("5x5","7x7","10x10","15x15"))
+lines(x=c(1:4), y = no_par_itsec[2,], type = "l", lty  = 3, col = "red4")
+lines(x=c(1:4), y = no_par_itsec[3,], type = "l", lty  = 3, col = "green4")
+lines(x=c(1:4), y = par_itsec[1,], type = "l", lty  = 4, col = "dodgerblue4")
+lines(x=c(1:4), y = par_itsec[2,], type = "l", lty  = 4, col = "red4")
+lines(x=c(1:4), y = par_itsec[3,], type = "l", lty  = 4,col = "green4")
+legend("topright", lty = c(3,3,3,4,4,4), col = c("dodgerblue4", "red4", "green4", "dodgerblue4", "red4", "green4"), legend = c("No par, 500 its", "No par, 1000 its", "No par, 10000 its", "Method 1, 500 its", "Method1, 1000 its", "Method 1, 10000 its"), cex = 0.75)
+
+
+```
+
+
+
+
+
 
 
 
